@@ -8,7 +8,7 @@ from seleniumwire import webdriver as wire_driver
 
 
 LINK_ORDER = 'https://sellercentral.amazon.com/orders-v3/order/'
-PHONE_COMPANY = '18049640370'
+PHONE_COMPANY = '1804964038'
 QT = 1
 COMPANY = ' WhiteLilyStore'  # use this if not specified for individual accounts
 URL_AUTHORIZATION = 'https://sellercentral.amazon.com/ap/signin?openid.return_to=https%3A%2F%2Fsellercentral.amazon.' \
@@ -54,7 +54,7 @@ def initialize_driver():
 
 
 def get_details_order(link_orders, driver):
-    """Получаем данные из заказа и розделяем логику на юр лицо и физ лицо"""
+    """We receive data from the order and separate the logic into a legal entity and an individual"""
     values_1 = []
 
     driver.get(link_orders)
