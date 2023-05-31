@@ -2,11 +2,10 @@ import time
 import gspread
 from bs4 import BeautifulSoup
 from selenium import webdriver
-from webdriver_manager.chrome import ChromeDriverManager
 from selenium_stealth import stealth
-from seleniumwire import webdriver as wire_driver
 
 
+API_GSPREAD = 'Your api key'
 LINK_ORDER = 'https://sellercentral.amazon.com/orders-v3/order/'
 PHONE_COMPANY = '1804964038'
 QT = 1
@@ -28,7 +27,7 @@ def initialize_gspread_api():
     Initializes the Google Sheets API and returns the worksheet object to write data to.
     '''
     gc = gspread.service_account(filename='sheet.json')  # service account file name
-    sh = gc.open_by_key('1UHUJt2guYcXtUF-FU7L7k7y1TKbxTRwZW8AYvCn5bTE')  # Google Sheets ID
+    sh = gc.open_by_key(API_GSPREAD)  # Google Sheets ID
     worksheet = sh.worksheet('testlist')  # worksheet name
     return worksheet
 
@@ -51,6 +50,68 @@ def initialize_driver():
     chrome_options = stealth.add_options(chrome_options, **stealth_options)
 
     return webdriver.Chrome(executable_path='chromedriver.exe', options=chrome_options)
+
+
+def get_order_links(driver, ):
+    driver.get('https://sellercentral.amazon.com/orders-v3/mfn/unshipped/ref=bb_myo_wos3_home?_encoding=UTF8&sort='
+               'status_desc&shipByDate=all&communicationDeliveryId=b7c2113a-c226-4599-a762-faea56f0a631&page=1')
+
+    time.sleep(3)
+    soup = BeautifulSoup(driver.page_source, 'html.parser')
+    orders_table = soup.find('table', attrs={'id': 'orders-table'})
+    time.sleep(2)
+    tbody = orders_table.find('tbody')
+    t = tbody.find_all('tr')
+
+    for i in t:
+        tds = i.find_all('td')
+        buyer_name = tds[2].find('a', attrs={'data-test-id': 'buyer-name-with-link'}).text
+        orders_id = tds[2].find('div', attrs={'class': 'cell-body-title'}).text
+        link_orders = LINK_ORDER + orders_id
+
+        data = tds[1].find('div', attrs={'class': 'cell-body'})
+        order_data = data.find_all('div')[2].get_text(strip=True)
+        product_name_table = tds[4].find('div', attrs={'class': True})
+
+        for i in product_name_table:
+            asin = i.find_all('div')[3].get_text(strip=True).split(':')[1]
+            sku = i.find_all('div')[5].get_text().split(':')[1].strip()
+            unit_price_split = i.find_all('div')[9].get_text().split(' ')[2]
+            unit_price = unit_price_split.replace(',', '.').split('USD')[0]
+            orders_item = i.find_all('div')[13].get_text(strip=True).split(' ')[4]
+
+            list2 = [order_data, QT, sku, orders_id, buyer_name, asin, unit_price, orders_item]
+            list1 = get_details_order(link_orders)
+            list_total = list2 + list1
+
+            # Заполняем пустые колонки
+            list_total.insert(3, '')
+            list_total.insert(4, '')
+            list_total.insert(5, '')
+            list_total.insert(18, '')
+            list_total.insert(19, '')
+
+            # Сортируем
+            list_total[0], list_total[1] = list_total[1], list_total[0]
+            list_total[0], list_total[2] = list_total[2], list_total[0]
+            list_total[0], list_total[3] = list_total[3], list_total[0]
+
+            list_total[6], list_total[7] = list_total[7], list_total[6]
+            list_total[6], list_total[10] = list_total[10], list_total[6]
+            list_total[6], list_total[16] = list_total[16], list_total[6]
+            list_total[6], list_total[13] = list_total[13], list_total[6]
+            list_total[8], list_total[11] = list_total[11], list_total[8]
+            list_total[9], list_total[12] = list_total[12], list_total[9]
+            list_total[11], list_total[14] = list_total[14], list_total[11]
+            list_total[12], list_total[15] = list_total[15], list_total[12]
+            list_total[14], list_total[17] = list_total[17], list_total[14]
+            list_total[15], list_total[20] = list_total[20], list_total[15]
+            list_total[18], list_total[20] = list_total[20], list_total[18]
+            list_total[17], list_total[20] = list_total[20], list_total[17]
+
+            # Записываем в гугл документы
+            write_google_sheet(list_total)
+            time.sleep(15)
 
 
 def get_details_order(link_orders, driver):
@@ -174,10 +235,14 @@ def get_details_order(link_orders, driver):
     return values_1
 
 
+def write_google_sheet(values):
+    worksheet.append_row(values, table_range="B6:B")
+
+
 def main():
     driver_initialize = initialize_driver()
     initialize_gspread = initialize_gspread_api()
-
+    list2 = get_order_links(initialize_driver)
 
 if __name__ == '__main__':
     main()
