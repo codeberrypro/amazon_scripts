@@ -1,10 +1,31 @@
-import psycopg2
 import requests
-import pandas as pd
+import psycopg2
 import matplotlib.pyplot as plt
+import pandas as pd
+
+from airflow import DAG
+from airflow.operators.python_operator import PythonOperator
 
 from config import host, port, user, password, db_name
 from config import bot_token, chat_id
+from datetime import datetime, timedelta
+
+
+default_args = {
+    'owner': 'ваше_имя',
+    'start_date': datetime(2023, 1, 1, 8, 0),
+    'depends_on_past': False,
+    'retries': 1,
+    'retry_delay': timedelta(minutes=5),
+}
+
+
+dag = DAG(
+    'send_plot_to_telegram',
+    default_args=default_args,
+    schedule_interval='0 8 * * 1',
+    catchup=False,
+)
 
 
 def connect_to_database():
@@ -35,19 +56,20 @@ def connect_to_database():
 
 
 def calculate_averages(df):
-    weekly_avg = df['Week'].mean()
-    monthly_avg = df['Month'].mean()
-    three_months_avg = df['3 Months'].mean()
+    x_values = ['Weekly Avg', 'Monthly Avg', '3 Months Avg']
+    averages = [df['Week'].mean(), df['Month'].mean(), df['3 Months'].mean()]
 
-    df.plot(kind='bar', rot=0, title='Average Values', legend=False)
-    plt.xlabel('Period')
+    plt.bar(x_values, averages, color='blue')
+    plt.title('Average Values in hours')
+    plt.xlabel('Time Period')
     plt.ylabel('Average')
     plt.savefig('average_values.png')
     plt.close()
 
 
-def send_plot_to_telegram(image_path):
+def send_plot_to_telegram():
     try:
+        image_path = 'average_values.png'
         url = f'https://api.telegram.org/bot{bot_token}/sendPhoto'
         files = {'photo': open(image_path, 'rb')}
         data = {'chat_id': chat_id}
@@ -62,10 +84,9 @@ def send_plot_to_telegram(image_path):
 
 def main():
     df = connect_to_database()
-
     if df is not None:
         calculate_averages(df)
-        send_plot_to_telegram('average_values.png')
+        send_plot_to_telegram()
     else:
         print("No data found in the database.")
 
